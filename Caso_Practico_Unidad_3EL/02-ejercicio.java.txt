@@ -1,0 +1,87 @@
+package com.empresa.catalogo.controller;
+
+import com.empresa.catalogo.model.Producto;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
+
+@RestController
+@RequestMapping("/api/productos")
+public class ProductoController {
+
+    // Simulación en memoria de capa de servicio/repositorio para fines de la actividad
+    private final List<Producto> productos = new ArrayList<>();
+    private final AtomicLong secuenciaId = new AtomicLong(1);
+
+    public ProductoController() {
+        productos.add(new Producto(secuenciaId.getAndIncrement(), "Teclado Mecánico", 79.99, 25, "Periféricos"));
+        productos.add(new Producto(secuenciaId.getAndIncrement(), "Mouse Inalámbrico", 34.50, 40, "Periféricos"));
+    }
+
+    // 1. Obtener todos los productos
+    @GetMapping
+    public ResponseEntity<List<Producto>> obtenerTodos() {
+        return ResponseEntity.ok(productos);
+    }
+
+    // 2. Obtener un producto por su ID
+    @GetMapping("/{id}")
+    public ResponseEntity<Producto> obtenerPorId(@PathVariable Long id) {
+        return buscarPorId(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    // 3. Crear un nuevo producto
+    @PostMapping
+    public ResponseEntity<Producto> crearProducto(@RequestBody Producto nuevoProducto) {
+        nuevoProducto.setId(secuenciaId.getAndIncrement());
+        productos.add(nuevoProducto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(nuevoProducto);
+    }
+
+    // 4. Actualizar el stock de un producto
+    @PutMapping("/{id}/stock")
+    public ResponseEntity<Producto> actualizarStock(@PathVariable Long id, @RequestBody StockRequest request) {
+        Optional<Producto> optionalProducto = buscarPorId(id);
+        if (optionalProducto.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Producto producto = optionalProducto.get();
+        producto.setStock(request.getStock());
+        return ResponseEntity.ok(producto);
+    }
+
+    // 5. Eliminar un producto
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminarProducto(@PathVariable Long id) {
+        boolean eliminado = productos.removeIf(p -> p.getId().equals(id));
+        if (!eliminado) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    private Optional<Producto> buscarPorId(Long id) {
+        return productos.stream()
+                .filter(p -> p.getId().equals(id))
+                .findFirst();
+    }
+
+    public static class StockRequest {
+        private int stock;
+
+        public int getStock() {
+            return stock;
+        }
+
+        public void setStock(int stock) {
+            this.stock = stock;
+        }
+    }
+}
